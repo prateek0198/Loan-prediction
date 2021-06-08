@@ -1,0 +1,79 @@
+
+
+```{r}
+dataset <- read.csv("loan.csv", stringsAsFactors = FALSE)
+library(dplyr)
+library(tidyr)
+library(skimr)
+library(rsample)
+library(recipes)
+library(ggplot2)
+library(corrr)
+library(parsnip)
+library(caTools)
+```
+
+```{r}
+skim(dataset)
+```
+```{r}
+dataset<-dataset[,-(which(colMeans(is.na(dataset))==1))]
+data.frame(sapply(dataset,function(y) length(unique(y))))
+dataset<- dataset[,-which(sapply(dataset,function(y) length(unique(y)))==1)]
+```
+```{r}
+dataset <- dataset[c("id", "loan_amnt", "term", "int_rate","installment", "grade", "sub_grade", "emp_length", "home_ownership", "annual_inc", 
+               "verification_status", "loan_status", "purpose", "dti", "delinq_2yrs", "inq_last_6mths", "pub_rec_bankruptcies",
+               "open_acc", "pub_rec", "revol_bal", "revol_util", "total_acc")]
+```
+
+```{r}
+skim(dataset)
+```
+```{r}
+dataset%>%
+  select(where(~ is.numeric(.x)))%>%
+  correlate()%>%
+  network_plot()
+```
+
+```{r}
+dataset$int_rate <- as.numeric(sub("%","",dataset$int_rate))
+dataset$revol_util <- as.numeric(sub("%","",dataset$revol_util))
+```
+
+```{r}
+juiced<-dataset%>%
+  recipe()%>%
+  step_naomit(pub_rec_bankruptcies, revol_util)%>%
+  step_impute_median(pub_rec_bankruptcies, revol_util)%>%
+prep()  
+
+loan<-juice(juiced)
+```
+
+```{r}
+skim(juiced)
+```
+```{r}
+loan$new_status <- factor(ifelse(loan$loan_status %in% c("Current","Fully Paid"),"Cleared","Defaulted"))
+```
+
+
+```{r}
+ggplot(loan,aes(x=loan_amnt,fill=new_status))+ geom_histogram(col="black",position = "fill",breaks=seq(0,35000,by=5000))+ labs(x="Loan Amount($)", y="Proportion",title="Proportion of borrowers by loan amount")
+
+ggplot(loan,aes(x=term,fill=new_status))+ geom_bar(col="black",position = "fill")+ labs(x="Term", y="Proportion",title="Proportion of borrowers by loan amount")
+
+ggplot(loan,aes(x=int_rate,fill=new_status))+ geom_histogram(col="black",position = "fill",breaks=seq(5,25,by=5)) + scale_fill_manual(name="",values = c("green","red")) + theme(legend.position = "top",plot.title = element_text(hjust = 0.5)) + labs(x="Interest Rate(%)", y="Proportion",title="Proportion of borrowers by interest rate")
+
+
+
+```
+
+```{r}
+
+
+
+```
+
